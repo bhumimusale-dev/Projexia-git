@@ -1,0 +1,2 @@
+# Projexia
+Academic Projects platform
