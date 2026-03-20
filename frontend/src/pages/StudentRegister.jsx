@@ -1,6 +1,7 @@
 import { useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
 import {
     UserPlus,
     Mail,
@@ -10,7 +11,8 @@ import {
     User,
     ArrowLeft,
     AlertCircle,
-    Loader2
+    Loader2,
+    Cpu
 } from "lucide-react";
 
 export default function StudentRegister() {
@@ -29,13 +31,11 @@ export default function StudentRegister() {
         setLoading(true);
         setError("");
         try {
-            // Step 1: Create the student account
             await axios.post("http://127.0.0.1:5000/register", {
                 ...form,
                 role: "student"
             });
 
-            // Step 2: Auto-login after successful registration
             const res = await axios.post("http://127.0.0.1:5000/login", {
                 email: form.email,
                 password: form.password
@@ -53,44 +53,62 @@ export default function StudentRegister() {
     };
 
     return (
-        <div className="min-h-screen bg-[#fafafa] flex flex-col items-center justify-center p-6 font-sans">
+        <div className="min-h-screen bg-[#06080b] flex flex-col items-center justify-center p-6 font-sans overflow-hidden relative selection:bg-indigo-500/30 selection:text-white">
+            
+            {/* Background Mesh Glow */}
+            <div className="absolute inset-0 pointer-events-none">
+                <div className="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] bg-indigo-500/10 rounded-full blur-[120px]" />
+                <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] bg-purple-500/10 rounded-full blur-[120px]" />
+            </div>
 
             {/* HEADER LOGO / BACK BUTTON */}
-            <div className="w-full max-w-2xl flex justify-between items-center mb-8">
+            <motion.div 
+               initial={{ opacity: 0, y: -10 }}
+               animate={{ opacity: 1, y: 0 }}
+               className="w-full max-w-2xl flex justify-between items-center mb-8 relative z-10"
+            >
                 <button
                     onClick={() => nav("/login")}
-                    className="flex items-center gap-2 text-slate-500 hover:text-slate-900 font-bold text-sm transition"
+                    className="flex items-center gap-2 text-slate-400 hover:text-white font-bold text-sm transition"
                 >
                     <ArrowLeft className="w-4 h-4" /> Back to Login
                 </button>
-                <div className="text-right">
-                    <span className="text-xs font-black text-indigo-600 uppercase tracking-widest">Student Portal</span>
+                <div className="flex items-center gap-2">
+                    <div className="bg-indigo-600 p-1 rounded-md">
+                        <Cpu className="text-white w-3 h-3" />
+                    </div>
+                    <span className="text-xs font-black text-indigo-400 uppercase tracking-widest">Student Portal</span>
                 </div>
-            </div>
+            </motion.div>
 
-            <div className="bg-white border border-slate-200 shadow-2xl shadow-slate-200/50 w-full max-w-2xl rounded-[32px] overflow-hidden">
+            <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+                className="bg-white/[0.03] backdrop-blur-2xl border border-white/5 shadow-2xl shadow-black/50 w-full max-w-2xl rounded-[32px] overflow-hidden relative z-10"
+            >
                 <div className="p-10">
                     <div className="mb-10">
-                        <h2 className="text-3xl font-black tracking-tight text-slate-900 mb-2">Create Student Account</h2>
-                        <p className="text-slate-500 font-medium">Join the Projexia platform to start your innovation journey.</p>
+                        <h2 className="text-2xl font-black tracking-tight bg-clip-text bg-gradient-to-b from-white to-slate-300 text-transparent mb-2">Create Student Account</h2>
+                        <p className="text-slate-400 text-xs font-medium">Join the Projexia platform to start your innovation journey.</p>
                     </div>
 
                     {error && (
-                        <div className="flex items-center gap-3 bg-red-50 border border-red-100 text-red-700 text-sm p-4 rounded-2xl mb-8">
-                            <AlertCircle className="w-5 h-5" />
-                            <span className="font-semibold">{error}</span>
+                        <div className="flex items-center gap-3 bg-red-500/10 border border-red-500/20 text-red-400 text-xs p-4 rounded-xl mb-8">
+                            <AlertCircle className="w-4 h-4" />
+                            <span className="font-bold">{error}</span>
                         </div>
                     )}
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
 
                         {/* FULL NAME */}
                         <div className="md:col-span-2 relative group">
-                            <label className="text-xs font-bold text-slate-400 uppercase mb-2 block ml-1">Full Name</label>
+                            <label className="text-xs font-bold text-slate-500 uppercase mb-2 block ml-1">Full Name</label>
                             <div className="relative">
-                                <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-indigo-600 transition" />
+                                <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 group-focus-within:text-indigo-400 transition" />
                                 <input
-                                    className="w-full bg-slate-50 border border-slate-100 p-4 pl-12 rounded-2xl outline-none focus:bg-white focus:border-indigo-600 focus:ring-4 focus:ring-indigo-50 transition-all font-medium"
+                                    className="w-full bg-white/[0.03] border border-white/10 p-4 pl-12 rounded-xl outline-none focus:border-indigo-500 focus:bg-white/[0.05] transition-all font-medium text-sm text-white placeholder:text-slate-600"
                                     placeholder="e.g. Bhumi Musale"
                                     onChange={e => setForm({ ...form, name: e.target.value })}
                                 />
@@ -99,12 +117,12 @@ export default function StudentRegister() {
 
                         {/* EMAIL */}
                         <div className="md:col-span-1 relative group">
-                            <label className="text-xs font-bold text-slate-400 uppercase mb-2 block ml-1">College Email</label>
+                            <label className="text-xs font-bold text-slate-500 uppercase mb-2 block ml-1">College Email</label>
                             <div className="relative">
-                                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-indigo-600 transition" />
+                                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 group-focus-within:text-indigo-400 transition" />
                                 <input
-                                    className="w-full bg-slate-50 border border-slate-100 p-4 pl-12 rounded-2xl outline-none focus:bg-white focus:border-indigo-600 focus:ring-4 focus:ring-indigo-50 transition-all font-medium"
-                                    placeholder="id@college.edu"
+                                    className="w-full bg-white/[0.03] border border-white/10 p-4 pl-12 rounded-xl outline-none focus:border-indigo-500 focus:bg-white/[0.05] transition-all font-medium text-sm text-white placeholder:text-slate-600"
+                                    placeholder="id@institution.edu"
                                     onChange={e => setForm({ ...form, email: e.target.value })}
                                 />
                             </div>
@@ -112,12 +130,12 @@ export default function StudentRegister() {
 
                         {/* PASSWORD */}
                         <div className="md:col-span-1 relative group">
-                            <label className="text-xs font-bold text-slate-400 uppercase mb-2 block ml-1">Password</label>
+                            <label className="text-xs font-bold text-slate-500 uppercase mb-2 block ml-1">Password</label>
                             <div className="relative">
-                                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-indigo-600 transition" />
+                                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 group-focus-within:text-indigo-400 transition" />
                                 <input
                                     type="password"
-                                    className="w-full bg-slate-50 border border-slate-100 p-4 pl-12 rounded-2xl outline-none focus:bg-white focus:border-indigo-600 focus:ring-4 focus:ring-indigo-50 transition-all font-medium"
+                                    className="w-full bg-white/[0.03] border border-white/10 p-4 pl-12 rounded-xl outline-none focus:border-indigo-500 focus:bg-white/[0.05] transition-all font-medium text-sm text-white placeholder:text-slate-600"
                                     placeholder="••••••••"
                                     onChange={e => setForm({ ...form, password: e.target.value })}
                                 />
@@ -126,66 +144,68 @@ export default function StudentRegister() {
 
                         {/* BRANCH SELECT */}
                         <div className="md:col-span-1 relative group">
-                            <label className="text-xs font-bold text-slate-400 uppercase mb-2 block ml-1">Academic Branch</label>
+                            <label className="text-xs font-bold text-slate-500 uppercase mb-2 block ml-1">Academic Branch</label>
                             <div className="relative">
-                                <BookOpen className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
+                                <BookOpen className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
                                 <select
-                                    className="w-full bg-slate-50 border border-slate-100 p-4 pl-12 rounded-2xl outline-none focus:bg-white focus:border-indigo-600 appearance-none font-medium transition-all"
+                                    className="w-full bg-white/[0.03] border border-white/10 p-4 pl-12 rounded-xl outline-none focus:border-indigo-500 focus:bg-[#0b0e14] text-white font-medium text-sm transition-all appearance-none"
                                     onChange={e => setForm({ ...form, branch: e.target.value })}
                                 >
-                                    <option value="">Select Branch</option>
-                                    <option>Information Technology</option>
-                                    <option>Computer Science</option>
-                                    <option>AI & Machine Learning</option>
-                                    <option>Electronics & Computer Science</option>
-                                    <option>Mechatronics</option>
+                                    <option value="" className="bg-[#0b0e14]">Select Branch</option>
+                                    <option className="bg-[#0b0e14]">Information Technology</option>
+                                    <option className="bg-[#0b0e14]">Computer Science</option>
+                                    <option className="bg-[#0b0e14]">AI & Machine Learning</option>
+                                    <option className="bg-[#0b0e14]">Electronics & Computer Science</option>
+                                    <option className="bg-[#0b0e14]">Mechatronics</option>
                                 </select>
                             </div>
                         </div>
 
                         {/* YEAR SELECT */}
                         <div className="md:col-span-1 relative group">
-                            <label className="text-xs font-bold text-slate-400 uppercase mb-2 block ml-1">Academic Year</label>
+                            <label className="text-xs font-bold text-slate-500 uppercase mb-2 block ml-1">Academic Year</label>
                             <div className="relative">
-                                <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
+                                <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
                                 <select
-                                    className="w-full bg-slate-50 border border-slate-100 p-4 pl-12 rounded-2xl outline-none focus:bg-white focus:border-indigo-600 appearance-none font-medium transition-all"
+                                    className="w-full bg-white/[0.03] border border-white/10 p-4 pl-12 rounded-xl outline-none focus:border-indigo-500 focus:bg-[#0b0e14] text-white font-medium text-sm transition-all appearance-none"
                                     onChange={e => setForm({ ...form, year: e.target.value })}
                                 >
-                                    <option value="">Select Year</option>
-                                    <option value="1">First Year (FE)</option>
-                                    <option value="2">Second Year (SE)</option>
-                                    <option value="3">Third Year (TE)</option>
-                                    <option value="4">Final Year (BE)</option>
+                                    <option value="" className="bg-[#0b0e14]">Select Year</option>
+                                    <option value="1" className="bg-[#0b0e14]">First Year (FE)</option>
+                                    <option value="2" className="bg-[#0b0e14]">Second Year (SE)</option>
+                                    <option value="3" className="bg-[#0b0e14]">Third Year (TE)</option>
+                                    <option value="4" className="bg-[#0b0e14]">Final Year (BE)</option>
                                 </select>
                             </div>
                         </div>
 
                     </div>
 
-                    <button
+                    <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
                         disabled={loading}
                         onClick={register}
-                        className="w-full bg-slate-900 text-white py-5 rounded-2xl font-bold text-lg hover:bg-indigo-600 disabled:bg-slate-300 transition-all shadow-xl shadow-slate-200 flex items-center justify-center gap-3 mt-10 group"
+                        className="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-4 rounded-xl font-bold text-sm disabled:bg-slate-700 disabled:text-slate-400 transition-all shadow-xl shadow-indigo-600/10 flex items-center justify-center gap-2 mt-8 group"
                     >
                         {loading ? (
-                            <Loader2 className="w-5 h-5 animate-spin" />
+                            <Loader2 className="w-4 h-4 animate-spin" />
                         ) : (
                             <>
                                 Complete Registration
-                                <UserPlus className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                                <UserPlus className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                             </>
                         )}
-                    </button>
+                    </motion.button>
                 </div>
 
                 {/* FOOTER INFO */}
-                <div className="bg-slate-50 p-6 border-t border-slate-100 text-center">
-                    <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">
-                        By registering, you agree to the institutional project guidelines.
+                <div className="bg-white/5 p-5 border-t border-white/5 text-center">
+                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest leading-relaxed">
+                        By registering, you agree to the institutional project guidelines safety nodes.
                     </p>
                 </div>
-            </div>
+            </motion.div>
         </div>
     );
 }

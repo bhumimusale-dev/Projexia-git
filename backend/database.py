@@ -9,3 +9,4 @@ db = client["projexia"]
 # Collections
 users_collection = db["users"]
 projects_collection = db["projects"]
+settings_collection = db["settings"]
