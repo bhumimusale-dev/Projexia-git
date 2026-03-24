@@ -10,8 +10,9 @@ import {
 export default function AdminDashboard() {
   const [calendar, setCalendar] = useState({ synopsis: "", midterm: "", final: "" });
   const [workloads, setWorkloads] = useState([]);
+  const [unallocated, setUnallocated] = useState([]);
   const [isSaving, setIsSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState("workload"); // 'workload' or 'calendar'
+  const [activeTab, setActiveTab] = useState("workload"); // 'workload', 'calendar', 'allocations'
   const [expandedTeacher, setExpandedTeacher] = useState(null); // Track which faculty card is open
 
   const nav = useNavigate();
@@ -29,6 +30,7 @@ export default function AdminDashboard() {
     }
     fetchCalendar();
     fetchWorkloads();
+    fetchUnallocated();
   }, [token, nav, user.role]);
 
   const fetchCalendar = async () => {
@@ -51,10 +53,36 @@ export default function AdminDashboard() {
     }
   }
 
+  const fetchUnallocated = async () => {
+    try {
+       const res = await axios.get("http://127.0.0.1:5000/admin/unallocated-projects", {
+         headers: { Authorization: `Bearer ${token}` }
+       });
+       setUnallocated(res.data || []);
+    } catch (err) {
+       console.error("Fetch unallocated error", err);
+    }
+  }
+
+  const allocateFaculty = async (title, teacherEmail) => {
+    if(!teacherEmail) return;
+    try {
+       await axios.post("http://127.0.0.1:5000/admin/allocate-faculty", {
+          title, teacher_email: teacherEmail
+       }, { headers: { Authorization: `Bearer ${token}` } });
+       alert("Faculty assigned successfully.");
+       fetchUnallocated();
+       fetchWorkloads();
+    } catch (err) {
+       alert(err.response?.data?.msg || "Failed to allocate faculty.");
+    }
+  }
+
   const downloadInstitutionalReport = () => {
     if (workloads.length === 0) return alert("No workloads available to export.");
+    const header = "SR No,Group Number,Student ID,Student Name,Name of Project,Faculty Guide,Faculty Department,Review 1 (25),Review 2 (25),Final (50),Total Score (100)\n";
+    let srNo = 1;
     let csvRows = [];
-    const header = "Faculty Guide,Faculty Department,Project Title,Group Members,Review 1 (25),Review 2 (25),Final (50),Total Score (100)\n";
     
     workloads.forEach(faculty => {
        const approved = (faculty.projects || []).filter(p => p.status === 'approved');
@@ -62,8 +90,38 @@ export default function AdminDashboard() {
          const rev1 = Number(p.evaluations?.review_1) || 0;
          const rev2 = Number(p.evaluations?.review_2) || 0;
          const fin = Number(p.evaluations?.final_review) || 0;
-         const membersStr = (p.group_members||[]).join('; ') || p.student_name;
-         csvRows.push(`"${faculty.name}","${faculty.department}","${p.title}","${membersStr}",${rev1},${rev2},${fin},${rev1+rev2+fin}`);
+         const total = rev1 + rev2 + fin;
+         const members = p.group_members && p.group_members.length > 0 ? p.group_members : [p.student_name || ""];
+
+         members.forEach((memberStr, idx) => {
+            let name = memberStr;
+            let id = "";
+            
+            if (memberStr.includes('-')) {
+               const parts = memberStr.split('-');
+               name = parts[0].trim();
+               id = parts.slice(1).join('-').trim();
+            } else {
+               const words = memberStr.split(' ');
+               const potentialId = words[words.length - 1];
+               if (/\d/.test(potentialId)) {
+                  id = potentialId;
+                  name = words.slice(0, -1).join(' ');
+               }
+            }
+  
+            const groupNum = idx === 0 ? (p.group_id || "N/A") : "";
+            const projTitle = idx === 0 ? `"${p.title || ""}"` : '""';
+            const fName = `"${faculty.name}"`;
+            const fDept = `"${faculty.department}"`;
+            const r1 = rev1;
+            const r2 = rev2;
+            const f = fin;
+            const t = total;
+  
+            csvRows.push(`${srNo},${groupNum},${id},${name},${projTitle},${fName},${fDept},${r1},${r2},${f},${t}`);
+            srNo++;
+         });
        });
     });
 
@@ -128,6 +186,15 @@ export default function AdminDashboard() {
             <Calendar className="w-5 h-5" /> 
             <span className="flex-1 text-left">Institutional Calendar</span>
             {activeTab === 'calendar' && <div className="w-1.5 h-1.5 bg-indigo-400 rounded-full shadow-[0_0_8px_rgba(99,102,241,0.8)]" />}
+          </button>
+          <button 
+            onClick={() => setActiveTab("allocations")}
+            className={`w-full flex items-center gap-3 p-3.5 rounded-2xl font-bold text-sm transition-all border ${activeTab === 'allocations' ? 'bg-gradient-to-r from-indigo-500/20 to-transparent border-indigo-500/20 text-indigo-400' : 'border-transparent text-slate-400 hover:text-white hover:bg-white/5'}`}
+          >
+            <Briefcase className="w-5 h-5" /> 
+            <span className="flex-1 text-left">Group Allocations</span>
+            {unallocated.length > 0 && <span className="text-[10px] bg-red-500 text-white font-black px-2 py-0.5 rounded-full">{unallocated.length}</span>}
+            {activeTab === 'allocations' && <div className="w-1.5 h-1.5 bg-indigo-400 rounded-full shadow-[0_0_8px_rgba(99,102,241,0.8)] ml-2" />}
           </button>
         </nav>
 
@@ -213,6 +280,79 @@ export default function AdminDashboard() {
               </div>
             </div>
            </div>
+
+        ) : activeTab === "allocations" ? (
+
+          /* ALLOCATIONS TAB */
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+             <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+                  Unassigned Groups
+                  <span className="bg-amber-100 text-amber-700 text-xs px-3 py-1 rounded-full font-black mt-1">Pending {unallocated.length}</span>
+                </h2>
+             </div>
+
+             <div className="grid lg:grid-cols-2 gap-6">
+                {unallocated.length === 0 ? (
+                  <div className="col-span-full bg-white rounded-3xl p-12 text-center border border-dashed border-slate-200">
+                    <p className="text-slate-400 font-bold">All submitting groups are assigned.</p>
+                  </div>
+                ) : (
+                  unallocated.map((proj, idx) => (
+                    <div key={idx} className="bg-white border border-slate-200/80 rounded-[28px] p-6 shadow-sm hover:shadow-md transition-all flex flex-col justify-between">
+                       <div>
+                         <div className="flex justify-between items-start mb-4">
+                           <span className="bg-amber-50 text-amber-600 px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded-xl">Pending Allocation</span>
+                           {proj.group_id && <span className="text-[10px] font-black text-slate-400">{proj.group_id}</span>}
+                         </div>
+                         <h3 className="font-black text-slate-900 text-xl mb-1">{proj.group_id ? `Group ${proj.group_id}` : "Uncategorized Group"}</h3>
+                         <p className="text-slate-500 text-sm font-medium line-clamp-2 mb-4">"{proj.title}"</p>
+                         
+                         <div className="flex flex-wrap gap-4 mb-4 border-l-2 border-slate-100 pl-3">
+                            <div className="w-full">
+                               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Members</p>
+                               <span className="text-xs font-bold text-slate-600">{(proj.group_members||[]).join(', ')}</span>
+                            </div>
+                            {(proj.year || proj.div || proj.batch) && (
+                              <div className="w-full mt-1">
+                                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Class Info</p>
+                                 <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-md">
+                                   {proj.year && `Year: ${proj.year} `}
+                                   {proj.div && `Div: ${proj.div} `}
+                                   {proj.batch && `Batch: ${proj.batch}`}
+                                 </span>
+                              </div>
+                            )}
+                         </div>
+                       </div>
+                       
+                       <div className="border-t border-slate-100 pt-4 mt-auto">
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Assign Guide</p>
+                          <div className="relative">
+                            <select 
+                               className="w-full bg-slate-50 border border-slate-200/80 p-3 rounded-xl outline-none focus:bg-white focus:border-indigo-400 font-semibold text-xs appearance-none text-slate-800 pr-10"
+                               onChange={(e) => allocateFaculty(proj.title, e.target.value)}
+                               defaultValue=""
+                            >
+                               <option value="" disabled>Select Faculty Guide...</option>
+                               {workloads.map(t => {
+                                  const totalCount = t.approved_count + t.pending_count;
+                                  const isFull = totalCount >= 5;
+                                  return (
+                                    <option key={t.email} value={t.email} disabled={isFull}>
+                                      {t.name} ({t.department||'General'}) {isFull ? '(FULL)' : `- ${totalCount}/5 Assigned`}
+                                    </option>
+                                  )
+                               })}
+                            </select>
+                            <ChevronDown className="w-5 h-5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                          </div>
+                       </div>
+                    </div>
+                  ))
+                )}
+             </div>
+          </div>
 
         ) : (
 

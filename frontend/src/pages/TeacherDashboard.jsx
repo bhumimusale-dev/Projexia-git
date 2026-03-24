@@ -19,7 +19,8 @@ import {
   AlertTriangle,
   Download,
   Save,
-  PenTool
+  PenTool,
+  Camera
 } from "lucide-react";
 
 export default function TeacherDashboard() {
@@ -30,6 +31,7 @@ export default function TeacherDashboard() {
   const [analyzingId, setAnalyzingId] = useState(null);
   const [view, setView] = useState("submissions"); // 'submissions' or 'analytics'
   const [evaluatingProject, setEvaluatingProject] = useState(null);
+  const [reviewPhoto, setReviewPhoto] = useState(null);
   const [marks, setMarks] = useState({ review_1: 0, review_2: 0, final_review: 0 });
 
   const nav = useNavigate();
@@ -88,14 +90,47 @@ export default function TeacherDashboard() {
 
   const downloadReport = () => {
     const allProj = projects.filter(p => p.status === 'approved');
-    const header = "Project Title,Group Members,Review 1 (25),Review 2 (25),Final (50),Total Score (100)\n";
-    const csv = header + allProj.map(p => {
+    const header = "SR No,Group Number,Student ID,Student Name,Name of Project,Review 1 (25),Review 2 (25),Final (50),Total Score (100)\n";
+    let csvRows = [];
+    let srNo = 1;
+
+    allProj.forEach(p => {
+       const members = p.group_members && p.group_members.length > 0 ? p.group_members : [p.student_name || ""];
        const rev1 = Number(p.evaluations?.review_1) || 0;
        const rev2 = Number(p.evaluations?.review_2) || 0;
        const fin = Number(p.evaluations?.final_review) || 0;
-       const membersStr = (p.group_members||[]).join('; ') || p.student_name;
-       return `"${p.title}","${membersStr}",${rev1},${rev2},${fin},${rev1+rev2+fin}`;
-    }).join('\n');
+       const total = rev1 + rev2 + fin;
+
+       members.forEach((memberStr, idx) => {
+          let name = memberStr;
+          let id = "";
+          
+          if (memberStr.includes('-')) {
+             const parts = memberStr.split('-');
+             name = parts[0].trim();
+             id = parts.slice(1).join('-').trim();
+          } else {
+             const words = memberStr.split(' ');
+             const potentialId = words[words.length - 1];
+             if (/\d/.test(potentialId)) {
+                id = potentialId;
+                name = words.slice(0, -1).join(' ');
+             }
+          }
+
+          const groupNum = idx === 0 ? (p.group_id || "N/A") : "";
+          const projTitle = idx === 0 ? `"${p.title || ""}"` : '""';
+          const r1 = rev1;
+          const r2 = rev2;
+          const f = fin;
+          const t = total;
+
+          csvRows.push(`${srNo},${groupNum},${id},${name},${projTitle},${r1},${r2},${f},${t}`);
+          srNo++;
+       });
+    });
+
+    const csv = header + csvRows.join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -106,10 +141,20 @@ export default function TeacherDashboard() {
 
   const saveEvaluations = async () => {
     try {
-      await axios.post("http://127.0.0.1:5000/teacher/save-evaluations", 
-        { title: evaluatingProject.title, evaluations: marks },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      if (reviewPhoto) {
+        const formData = new FormData();
+        formData.append("title", evaluatingProject.title);
+        formData.append("evaluations", JSON.stringify(marks));
+        formData.append("reviewPhoto", reviewPhoto);
+        await axios.post("http://127.0.0.1:5000/teacher/save-evaluations", formData, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+      } else {
+        await axios.post("http://127.0.0.1:5000/teacher/save-evaluations", 
+          { title: evaluatingProject.title, evaluations: marks },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+      }
       setEvaluatingProject(null);
       fetchData();
     } catch (err) {
@@ -124,6 +169,7 @@ export default function TeacherDashboard() {
        review_2: proj.evaluations?.review_2 || 0,
        final_review: proj.evaluations?.final_review || 0,
     });
+    setReviewPhoto(null);
     setEvaluatingProject(proj);
   };
 
@@ -221,7 +267,7 @@ export default function TeacherDashboard() {
             {/* STATS OVERVIEW */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-12">
               <MetricCard label="Submissions" value={projects.length} icon={<FileText className="w-6 h-6 text-indigo-600" />} color="bg-indigo-50 border-indigo-100" />
-              <MetricCard label="Pending" value={projects.filter(p => p.status === 'pending').length} icon={<RefreshCw className="w-6 h-6 text-amber-600" />} color="bg-amber-50 border-amber-100" />
+              <MetricCard label="Pending" value={projects.filter(p => ['pending', 'allocated', 'pending_allocation'].includes(p.status)).length} icon={<RefreshCw className="w-6 h-6 text-amber-600" />} color="bg-amber-50 border-amber-100" />
               <MetricCard 
                 label="Allocated Groups" 
                 value={`${projects.filter(p => p.status === 'approved').length}/5`} 
@@ -323,6 +369,17 @@ export default function TeacherDashboard() {
                     <span className="text-sm font-black text-slate-500">Total Calculation:</span>
                     <span className="text-2xl font-black text-indigo-600">{Number(marks.review_1) + Number(marks.review_2) + Number(marks.final_review)}/100</span>
                  </div>
+
+                 <div className="pt-2 border-t border-slate-200/60 mt-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center mb-2 gap-1.5 cursor-pointer hover:text-indigo-500 transition-colors">
+                      <Camera className="w-3.5 h-3.5" /> Attach Review Photo Evidence
+                      <input type="file" className="hidden" accept="image/*" onChange={e => setReviewPhoto(e.target.files[0])} />
+                    </label>
+                    {reviewPhoto && <div className="text-xs font-bold text-indigo-600 bg-indigo-50 px-3 py-2 rounded-xl border border-indigo-100/50 truncate">Attached: {reviewPhoto.name}</div>}
+                    {!reviewPhoto && evaluatingProject.evaluations?.photo && (
+                       <a href={evaluatingProject.evaluations.photo} target="_blank" rel="noreferrer" className="text-xs font-bold text-slate-500 underline">View previously uploaded photo</a>
+                    )}
+                 </div>
               </div>
 
               <div className="flex border-t border-emerald-100">
@@ -356,7 +413,7 @@ function MetricCard({ label, value, icon, color }) {
 }
 
 function ProjectRow({ project, onApprove, onReject, onAnalyze, isAnalyzing, onEvaluate }) {
-  const isPending = project.status === 'pending';
+  const isPending = ['pending', 'allocated', 'pending_allocation'].includes(project.status);
   const isHighSimilarity = (project.plagiarism_percentage || 0) > 30;
 
   return (
@@ -367,7 +424,7 @@ function ProjectRow({ project, onApprove, onReject, onAnalyze, isAnalyzing, onEv
         <div className="flex-1">
           <div className="flex flex-wrap items-center gap-3 mb-5">
             <span className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border shadow-sm ${isPending ? 'bg-amber-50 text-amber-700 border-amber-200/60' : 'bg-emerald-50 text-emerald-700 border-emerald-200/60'}`}>
-              {project.status || "Pending"}
+              {project.status === 'allocated' ? 'Allocated To You' : project.status || "Pending"}
             </span>
             <span className="text-[11px] font-black text-slate-600 bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200/60 flex items-center gap-1.5">
                <Users className="w-3.5 h-3.5 text-slate-400" /> Team: {(project.group_members || []).join(', ') || project.student_name}

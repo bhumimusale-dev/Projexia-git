@@ -12,8 +12,7 @@ from database import users_collection, projects_collection, settings_collection
 import os
 from dotenv import load_dotenv
 import google.generativeai as genai
-
-
+import uuid
 # Load environment variables
 load_dotenv()
 
@@ -46,8 +45,11 @@ def uploaded_file(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 
+from datetime import timedelta
+
 # JWT CONFIG
 app.config["JWT_SECRET_KEY"] = "projexia-super-secure-secret-key-123456"
+app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(days=30)
 jwt = JWTManager(app)
 
 
@@ -154,8 +156,10 @@ def submit_project():
     data = request.get_json()
     title = data.get("title")
     description = data.get("description")
-    teacher_email = data.get("teacher_email")
     group_members = data.get("group_members", [])
+    batch = data.get("batch", "")
+    div = data.get("div", "")
+    year = data.get("year", user.get("year", ""))
 
     if len(group_members) != 4:
         return jsonify({"msg": "A project group must consist of exactly 4 students."}), 400
@@ -170,16 +174,23 @@ def submit_project():
     domain = classify_project(title, description)
     similarity = check_similarity(title, description)
 
+    count = projects_collection.count_documents({}) + 1
+    group_id = str(count)
+
     project = {
         "student_email": user["email"],
         "student_name": user["name"],
+        "group_id": group_id,
+        "batch": batch,
+        "div": div,
+        "year": year,
         "group_members": group_members,
         "title": title,
         "description": description,
-        "teacher_email": teacher_email,
+        "teacher_email": None,
         "domain": domain,
         "plagiarism_percentage": similarity,
-        "status": "pending",
+        "status": "pending_allocation",
         "academic_year": user.get("year"),
         "progress": 0,
         "tasks": [],
@@ -458,9 +469,9 @@ def update_status():
 
 
     if status == "rejected":
-        # Requirement: Delete rejected projects immediately
-        projects_collection.delete_one({"title": title})
-        return jsonify({"msg": "Project rejected and deleted"}), 200
+        # Return to admin pool instead of deleting
+        projects_collection.update_one({"title": title}, {"$set": {"status": "pending_allocation", "teacher_email": None}})
+        return jsonify({"msg": "Project rejected and unallocated"}), 200
 
     
     # Otherwise, update to approved
@@ -517,13 +528,36 @@ def save_evaluations():
     if not is_teacher():
         return jsonify({"msg": "Unauthorized"}), 403
 
-    data = request.get_json()
-    title = data.get("title")
-    evals = data.get("evaluations", {})
-
+    import json
+    
+    data = request.get_json(silent=True)
+    if data:
+        title = data.get("title")
+        evals = data.get("evaluations", {})
+    else:
+        title = request.form.get("title")
+        evals_str = request.form.get("evaluations", "{}")
+        try:
+            evals = json.loads(evals_str)
+        except:
+            evals = {}
     project = projects_collection.find_one({"title": title})
     if not project:
         return jsonify({"msg": "Project not found"}), 404
+
+    # Handle photo upload
+    file = request.files.get("reviewPhoto")
+    if file and file.filename != "":
+        import os
+        from werkzeug.utils import secure_filename
+        filename = secure_filename(f"eval_{title.replace(' ', '_')}_{file.filename}")
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        file.save(file_path)
+        evals["photo"] = f"http://127.0.0.1:5000/uploads/{filename}"
+    else:
+        old_evals = project.get("evaluations", {})
+        if "photo" in old_evals:
+            evals["photo"] = old_evals["photo"]
 
     projects_collection.update_one(
         {"title": title},
@@ -597,6 +631,40 @@ def faculty_workload():
     workload = sorted(workload, key=lambda x: x["total_count"], reverse=True)
     
     return jsonify(transform_mongo_doc(workload)), 200
+
+
+@app.route("/admin/unallocated-projects", methods=["GET"])
+@jwt_required()
+def unallocated_projects():
+    if not is_admin():
+        return jsonify({"msg": "Unauthorized"}), 403
+    projects = list(projects_collection.find({"status": "pending_allocation"}))
+    return jsonify(transform_mongo_doc(projects)), 200
+
+
+@app.route("/admin/allocate-faculty", methods=["POST"])
+@jwt_required()
+def allocate_faculty():
+    if not is_admin():
+        return jsonify({"msg": "Unauthorized"}), 403
+    
+    data = request.get_json()
+    title = data.get("title")
+    teacher_email = data.get("teacher_email")
+    
+    current_approved = projects_collection.count_documents({
+        "teacher_email": teacher_email,
+        "status": {"$in": ["approved", "allocated"]}
+    })
+    
+    if current_approved >= 5:
+        return jsonify({"msg": "Maximum Capacity (20 students) Reached for this faculty."}), 400
+        
+    projects_collection.update_one(
+        {"title": title},
+        {"$set": {"teacher_email": teacher_email, "status": "allocated"}}
+    )
+    return jsonify({"msg": "Faculty allocated successfully"}), 200
 
 
 # ================= CALENDAR ROUTES =================

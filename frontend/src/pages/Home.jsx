@@ -11,7 +11,15 @@ import {
   Zap,
   CheckCircle2,
   Sparkles,
-  ArrowUpRight
+  ArrowUpRight,
+  Target,
+  BookOpen,
+  FileText,
+  Code,
+  Users,
+  Award,
+  AlertCircle,
+  Clock
 } from "lucide-react";
 
 export default function Home() {
@@ -92,7 +100,7 @@ export default function Home() {
             </h1>
 
             <p className="max-w-xl mx-auto lg:mx-0 text-lg text-slate-400 font-medium leading-relaxed mb-12">
-              Projexia streamlines project matchings using robust **NLP Similarity Check** and **BERT embeddings**, helping institutions foster original innovation models and effortless scale.
+              A centralized platform that streamlines academic project submissions, enables flawless faculty collaboration, and tracks group progress from inception to final evaluation.
             </p>
 
             <div className="flex flex-col sm:flex-row justify-center lg:justify-start gap-4">
@@ -124,49 +132,62 @@ export default function Home() {
           >
             <div className="bg-gradient-to-br from-indigo-600/30 to-purple-600/10 p-[1px] rounded-3xl backdrop-blur-3xl">
               <div className="bg-[#0b0e14]/90 rounded-3xl p-8 border border-white/10 shadow-2xl relative overflow-hidden">
-                {/* Header of mockup */}
+                {/* Header of Info Card */}
                 <div className="flex items-center justify-between border-b border-white/5 pb-4 mb-6">
                   <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 bg-indigo-500/20 rounded-xl flex items-center justify-center">
-                      <Sparkles className="text-indigo-400 w-5 h-5" />
+                    <div className="w-10 h-10 bg-indigo-500/20 rounded-xl flex items-center justify-center shadow-lg">
+                      <GraduationCap className="text-indigo-400 w-5 h-5" />
                     </div>
                     <div>
-                      <h4 className="font-bold text-sm">BERT Similarity Analyzer</h4>
-                      <p className="text-xs text-slate-500">Checking Title Duplication...</p>
+                      <h4 className="font-bold text-sm">Platform Capabilities</h4>
+                      <p className="text-xs text-slate-500 font-medium text-indigo-300/80">Why use Projexia?</p>
                     </div>
                   </div>
-                  <span className="text-xs font-black px-2 py-1 bg-green-500/10 text-green-400 rounded-md">88.5% Unique</span>
+                  <div className="bg-white/5 border border-white/10 px-3 py-1 rounded-full flex items-center gap-2">
+                    <Sparkles className="w-3 h-3 text-purple-400" />
+                    <span className="text-[10px] font-bold text-purple-400 uppercase tracking-widest">Built for Universities</span>
+                  </div>
                 </div>
 
-                {/* Simulated Content */}
+                {/* Info Content - Clean Cards without arbitrary numbers */}
                 <div className="space-y-4">
-                  <div className="bg-white/5 border border-white/5 p-4 rounded-xl">
-                    <p className="text-xs text-indigo-400 mb-1 font-black">Project Title Input</p>
-                    <p className="text-sm font-semibold text-white">Smart IoT Subsystem for Hydroponic Irrigation Networks</p>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="bg-white/5 border border-white/5 p-3 rounded-xl flex items-center gap-3">
-                      <Zap className="w-4 h-4 text-purple-400" fill="rgba(168, 85, 247, 0.4)" />
-                      <div>
-                        <p className="text-[10px] text-slate-500">Processing Time</p>
-                        <p className="text-xs font-bold">182ms</p>
-                      </div>
+                  {/* Info Block 1 */}
+                  <div className="bg-white/[0.03] border border-white/5 p-4 rounded-xl flex items-start gap-4 hover:bg-white/[0.06] hover:border-indigo-500/30 transition-all cursor-pointer group">
+                    <div className="p-2 bg-indigo-500/10 rounded-lg shrink-0 group-hover:scale-110 group-hover:bg-indigo-500/20 transition-all">
+                      <Target className="w-5 h-5 text-indigo-400" />
                     </div>
-                    <div className="bg-white/5 border border-white/5 p-3 rounded-xl flex items-center gap-3">
-                      <CheckCircle2 className="w-4 h-4 text-green-400" />
-                      <div>
-                        <p className="text-[10px] text-slate-500">Model Load</p>
-                        <p className="text-xs font-bold">BERT L6</p>
-                      </div>
+                    <div>
+                      <h5 className="text-sm font-bold text-white mb-1">Centralized Project Hub</h5>
+                      <p className="text-xs text-slate-400 leading-relaxed">
+                        No more scattered emails. Submit documents, track deadlines, and communicate directly in one unified space.
+                      </p>
                     </div>
                   </div>
 
-                  <div className="bg-indigo-600/10 border border-indigo-500/20 p-4 rounded-xl">
-                    <p className="text-xs font-bold text-indigo-300 mb-2">💡 Recommended Action</p>
-                    <p className="text-xs text-slate-400 leading-relaxed">
-                      Matches 2 existing concepts from 2024 records. We advise refining your **Abstract** for greater originality.
-                    </p>
+                  {/* Info Block 2 */}
+                  <div className="bg-white/[0.03] border border-white/5 p-4 rounded-xl flex items-start gap-4 hover:bg-white/[0.06] hover:border-green-500/30 transition-all cursor-pointer group">
+                    <div className="p-2 bg-green-500/10 rounded-lg shrink-0 group-hover:scale-110 group-hover:bg-green-500/20 transition-all">
+                      <ShieldCheck className="w-5 h-5 text-green-400" />
+                    </div>
+                    <div>
+                      <h5 className="text-sm font-bold text-white mb-1">Authenticity Guaranteed</h5>
+                      <p className="text-xs text-slate-400 leading-relaxed">
+                        Built-in semantic checks ensure that your project topics and code remain unique without historical overlaps.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Info Block 3 */}
+                  <div className="bg-white/[0.03] border border-white/5 p-4 rounded-xl flex items-start gap-4 hover:bg-white/[0.06] hover:border-blue-500/30 transition-all cursor-pointer group">
+                    <div className="p-2 bg-blue-500/10 rounded-lg shrink-0 group-hover:scale-110 group-hover:bg-blue-500/20 transition-all">
+                      <Award className="w-5 h-5 text-blue-400" />
+                    </div>
+                    <div>
+                      <h5 className="text-sm font-bold text-white mb-1">Confidential Grading</h5>
+                      <p className="text-xs text-slate-400 leading-relaxed">
+                        Faculty review projects across multiple stages securely, keeping preliminary mid-term feedback strictly private.
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -188,12 +209,11 @@ export default function Home() {
             <div className="md:col-span-8 bg-gradient-to-br from-white/[0.03] to-transparent rounded-[32px] p-10 flex flex-col justify-between border border-white/5 overflow-hidden relative group backdrop-blur-3xl">
               <div className="max-w-md relative z-10">
                 <div className="w-12 h-12 bg-indigo-600/20 border border-indigo-500/20 rounded-2xl flex items-center justify-center shadow-md mb-6">
-                  <Search className="text-indigo-400 w-6 h-6" />
+                  <Globe className="text-indigo-400 w-6 h-6" />
                 </div>
-                <h3 className="text-3xl font-black mb-4 tracking-tight">Semantic Similarity</h3>
+                <h3 className="text-3xl font-black mb-4 tracking-tight">Centralized Management</h3>
                 <p className="text-slate-400 font-medium leading-relaxed text-base">
-                  Automatically compare project titles against historical records using **BERT Word Embeddings** to ensure
-                  extreme originality and context matches.
+                  A unified dashboard for students to submit projects, track their progress, and for faculty to oversee multiple groups seamlessly from one place.
                 </p>
               </div>
               <div className="absolute top-10 right-[-50px] opacity-5 group-hover:opacity-10 group-hover:scale-105 transition-all duration-500">
@@ -204,11 +224,11 @@ export default function Home() {
             {/* SMALL BENTO CARD */}
             <div className="md:col-span-4 bg-gradient-to-br from-indigo-600 to-indigo-800 rounded-[32px] p-10 text-white flex flex-col justify-between shadow-2xl shadow-indigo-600/20 relative group overflow-hidden">
               <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(255,255,255,0.1),transparent)]" />
-              <Globe className="w-10 h-10 mb-6 opacity-80 group-hover:rotate-12 transition-transform duration-300 relative z-10" />
+              <ShieldCheck className="w-10 h-10 mb-6 opacity-80 group-hover:scale-110 transition-transform duration-300 relative z-10" />
               <div className="relative z-10">
-                <h3 className="text-2xl font-bold mb-3 tracking-tight leading-tight">SDG 4 Compliance</h3>
+                <h3 className="text-2xl font-bold mb-3 tracking-tight leading-tight">Confidential Grading</h3>
                 <p className="text-indigo-100 text-sm font-medium leading-relaxed">
-                  Driving quality education setups through data-driven academic planning and strictly verified structures.
+                  Secure, multi-stage evaluation matrices ensuring privacy between faculty reviews and final student grades.
                 </p>
               </div>
             </div>
@@ -218,10 +238,10 @@ export default function Home() {
               whileHover={{ y: -5 }}
               className="md:col-span-4 bg-white/[0.02] border border-white/5 rounded-[32px] p-8 hover:border-indigo-500/40 transition-all backdrop-blur-xl group"
             >
-              <ShieldCheck className="text-indigo-400 w-8 h-8 mb-6 group-hover:scale-110 transition-transform" />
-              <h4 className="text-xl font-bold mb-2">Automated Verification</h4>
+              <CheckCircle2 className="text-indigo-400 w-8 h-8 mb-6 group-hover:scale-110 transition-transform" />
+              <h4 className="text-xl font-bold mb-2">Real-time Task Tracking</h4>
               <p className="text-slate-400 text-sm font-medium leading-relaxed">
-                Streamlining the approval workflow for faculty members with precise real-time duplication highlights.
+                Stay on top of project deadlines with built-in task management and dynamic progress bars for every group.
               </p>
             </motion.div>
 
@@ -230,9 +250,9 @@ export default function Home() {
               className="md:col-span-4 bg-white/[0.02] border border-white/5 rounded-[32px] p-8 hover:border-indigo-500/40 transition-all backdrop-blur-xl group"
             >
               <Zap className="text-indigo-400 w-8 h-8 mb-6 group-hover:scale-110 transition-transform" />
-              <h4 className="text-xl font-bold mb-2">Smart Recommender</h4>
+              <h4 className="text-xl font-bold mb-2">AI Project Ideas</h4>
               <p className="text-slate-400 text-sm font-medium leading-relaxed">
-                Personalized local references based on BERT matrix layers matched against loaded tags datasets.
+                Stuck brainstorming? Use our built-in AI assistant to generate innovative topics and structure your abstracts.
               </p>
             </motion.div>
 
@@ -241,9 +261,9 @@ export default function Home() {
               className="md:col-span-4 bg-white/[0.02] border border-white/5 rounded-[32px] p-8 hover:border-indigo-500/40 transition-all backdrop-blur-xl group"
             >
               <GraduationCap className="text-indigo-400 w-8 h-8 mb-6 group-hover:scale-110 transition-transform" />
-              <h4 className="text-xl font-bold mb-2">Domain Analytics</h4>
+              <h4 className="text-xl font-bold mb-2">Easy Document Uploads</h4>
               <p className="text-slate-400 text-sm font-medium leading-relaxed">
-                Classifying setups into streamlined tech profiles like AI/ML, IoT devices, and Full-Stack Engineering.
+                Effortlessly upload and manage all required reports, synopses, and presentations organized by review stages.
               </p>
             </motion.div>
 

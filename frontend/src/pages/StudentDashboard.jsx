@@ -21,13 +21,14 @@ import { useNavigate } from "react-router-dom";
 export default function StudentDashboard() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [member1, setMember1] = useState(JSON.parse(localStorage.getItem("user") || "{}").email || "");
+  const [member1, setMember1] = useState(JSON.parse(localStorage.getItem("user") || "{}").name || "");
   const [member2, setMember2] = useState("");
   const [member3, setMember3] = useState("");
   const [member4, setMember4] = useState("");
+  const [batch, setBatch] = useState("");
+  const [div, setDiv] = useState("");
+  const [year, setYear] = useState("");
   const [projects, setProjects] = useState([]);
-  const [teachers, setTeachers] = useState([]);
-  const [selectedTeacher, setSelectedTeacher] = useState("");
   const [calendar, setCalendar] = useState({ synopsis: "", midterm: "", final: "" });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const nav = useNavigate();
@@ -44,7 +45,6 @@ export default function StudentDashboard() {
       return;
     }
     fetchProjects();
-    fetchTeachers();
     fetchCalendar();
   }, [token, nav, user.role]);
 
@@ -59,15 +59,6 @@ export default function StudentDashboard() {
     }
   };
 
-  const fetchTeachers = async () => {
-    try {
-      const res = await axios.get("http://127.0.0.1:5000/teachers/status", {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setTeachers(res.data || []);
-    } catch (err) { console.error("Fetch teachers error", err); }
-  };
-
   const fetchCalendar = async () => {
     try {
       const res = await axios.get("http://127.0.0.1:5000/calendar");
@@ -76,19 +67,22 @@ export default function StudentDashboard() {
   };
 
   const isGroupValid = member1.trim() && member2.trim() && member3.trim() && member4.trim();
+  const isMetaValid = batch.trim() && div.trim() && year.trim();
 
   const submit = async () => {
-    if (!title || !description || !isGroupValid) return;
+    if (!title || !description || !isGroupValid || !isMetaValid) return;
     setIsSubmitting(true);
     try {
       await axios.post(
         "http://127.0.0.1:5000/student/submit",
-        { title, description, teacher_email: selectedTeacher, group_members: [member1, member2, member3, member4] },
+        { title, description, batch, div, year, group_members: [member1, member2, member3, member4] },
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setTitle("");
       setDescription("");
-      setSelectedTeacher("");
+      setBatch("");
+      setDiv("");
+      setYear("");
       setMember2("");
       setMember3("");
       setMember4("");
@@ -146,7 +140,7 @@ export default function StudentDashboard() {
   };
 
   const approvedCount = projects.filter(p => (p.status || "").toLowerCase() === "approved").length;
-  const pendingCount = projects.filter(p => (p.status || "").toLowerCase() === "pending").length;
+  const pendingCount = projects.filter(p => (p.status || "").toLowerCase() !== "approved").length;
 
   return (
     <div className="min-h-screen bg-[#f8fafc] flex font-sans selection:bg-indigo-500 selection:text-white">
@@ -279,19 +273,34 @@ export default function StudentDashboard() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1 block pl-1">Group Member 1 (Lead)</label>
-                    <input className="w-full bg-slate-100 border border-slate-200/80 p-3 rounded-xl outline-none font-semibold text-xs text-slate-500" value={member1} readOnly title="Logged in user automatically set as Lead." />
+                    <input className="w-full bg-slate-50 border border-slate-200/80 p-3 rounded-xl outline-none focus:bg-white focus:border-indigo-400 font-semibold text-xs text-slate-800" placeholder="Name & Student ID..." value={member1} onChange={e => setMember1(e.target.value)} />
                   </div>
                   <div>
                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1 block pl-1">Group Member 2</label>
-                    <input className="w-full bg-slate-50 border border-slate-200/80 p-3 rounded-xl outline-none focus:bg-white focus:border-indigo-400 font-semibold text-xs text-slate-800" placeholder="Student ID / Email..." value={member2} onChange={e => setMember2(e.target.value)} />
+                    <input className="w-full bg-slate-50 border border-slate-200/80 p-3 rounded-xl outline-none focus:bg-white focus:border-indigo-400 font-semibold text-xs text-slate-800" placeholder="Name & Student ID..." value={member2} onChange={e => setMember2(e.target.value)} />
                   </div>
                   <div>
                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1 block pl-1">Group Member 3</label>
-                    <input className="w-full bg-slate-50 border border-slate-200/80 p-3 rounded-xl outline-none focus:bg-white focus:border-indigo-400 font-semibold text-xs text-slate-800" placeholder="Student ID / Email..." value={member3} onChange={e => setMember3(e.target.value)} />
+                    <input className="w-full bg-slate-50 border border-slate-200/80 p-3 rounded-xl outline-none focus:bg-white focus:border-indigo-400 font-semibold text-xs text-slate-800" placeholder="Name & Student ID..." value={member3} onChange={e => setMember3(e.target.value)} />
                   </div>
                   <div>
                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1 block pl-1">Group Member 4</label>
-                    <input className="w-full bg-slate-50 border border-slate-200/80 p-3 rounded-xl outline-none focus:bg-white focus:border-indigo-400 font-semibold text-xs text-slate-800" placeholder="Student ID / Email..." value={member4} onChange={e => setMember4(e.target.value)} />
+                    <input className="w-full bg-slate-50 border border-slate-200/80 p-3 rounded-xl outline-none focus:bg-white focus:border-indigo-400 font-semibold text-xs text-slate-800" placeholder="Name & Student ID..." value={member4} onChange={e => setMember4(e.target.value)} />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1 block pl-1">Year</label>
+                    <input className="w-full bg-slate-50 border border-slate-200/80 p-3 rounded-xl outline-none focus:bg-white focus:border-indigo-400 font-semibold text-xs text-slate-800" placeholder="SE/TE/BE" value={year} onChange={e => setYear(e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1 block pl-1">Div</label>
+                    <input className="w-full bg-slate-50 border border-slate-200/80 p-3 rounded-xl outline-none focus:bg-white focus:border-indigo-400 font-semibold text-xs text-slate-800" placeholder="e.g. A" value={div} onChange={e => setDiv(e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1 block pl-1">Batch</label>
+                    <input className="w-full bg-slate-50 border border-slate-200/80 p-3 rounded-xl outline-none focus:bg-white focus:border-indigo-400 font-semibold text-xs text-slate-800" placeholder="e.g. B1" value={batch} onChange={e => setBatch(e.target.value)} />
                   </div>
                 </div>
 
@@ -306,28 +315,6 @@ export default function StudentDashboard() {
                 </div>
 
                 <div>
-                  <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest mb-2 block pl-1">Supervising Faculty</label>
-                  <div className="relative">
-                    <select
-                      className="w-full bg-slate-50 border border-slate-200/80 p-4 rounded-2xl outline-none focus:bg-white focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 transition-all font-semibold text-sm appearance-none text-slate-800 pr-10"
-                      value={selectedTeacher}
-                      onChange={(e) => setSelectedTeacher(e.target.value)}
-                    >
-                      <option value="" disabled>Select Faculty Guide...</option>
-                      {teachers.map(t => {
-                        const isFull = (t.approved_count || 0) >= 5;
-                        return (
-                          <option key={t.email} value={t.email} disabled={isFull}>
-                            {t.name} ({t.department || 'General'}) {isFull ? '(5/5 GROUPS FULL)' : `- ${t.approved_count || 0}/5 Groups`}
-                          </option>
-                        );
-                      })}
-                    </select>
-                    <ChevronRight className="w-5 h-5 text-slate-400 absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none rotate-90" />
-                  </div>
-                </div>
-
-                <div>
                   <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest mb-2 block pl-1">Abstract / Motivation</label>
                   <textarea
                     className="w-full bg-slate-50 border border-slate-200/80 p-4 rounded-2xl outline-none focus:bg-white focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 transition-all font-semibold text-sm h-36 resize-none text-slate-800 placeholder:text-slate-400"
@@ -339,10 +326,10 @@ export default function StudentDashboard() {
 
                 <button
                   onClick={submit}
-                  disabled={isSubmitting || !isGroupValid}
+                  disabled={isSubmitting || !isGroupValid || !isMetaValid}
                   className="w-full bg-slate-900 text-white py-4 rounded-2xl font-bold hover:bg-indigo-600 transition-all duration-300 shadow-xl shadow-slate-900/10 flex items-center justify-center gap-3 group mt-4 relative overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {!isGroupValid && <div className="absolute top-1 right-2 text-[8px] font-black text-amber-300 uppercase">4 IDs Required</div>}
+                  {(!isGroupValid || !isMetaValid) && <div className="absolute top-1 right-2 text-[8px] font-black text-amber-300 uppercase">Wait! Details Missing</div>}
                   <span className="relative z-10 flex items-center gap-2">
                     {isSubmitting ? "Processing AI Scan..." : "Submit Proposal"}
                     {!isSubmitting && <Search className="w-4 h-4 group-hover:rotate-12 transition-transform" />}
@@ -408,7 +395,7 @@ export default function StudentDashboard() {
 
 function ProjectCard({ project, onAddTask, onToggleTask, onUploadFile }) {
   const [newTask, setNewTask] = useState(""); 
-  const isPending = project.status?.toLowerCase() === "pending";
+  const isPending = project.status?.toLowerCase() === "pending_allocation" || project.status?.toLowerCase() === "pending" || project.status?.toLowerCase() === "allocated";
   const isSimilarityHigh = (project.plagiarism_percentage || 0) > 30;
 
   const handleAdd = () => {
@@ -426,8 +413,9 @@ function ProjectCard({ project, onAddTask, onToggleTask, onUploadFile }) {
           <div className="flex flex-col gap-2">
             <span className={`w-max px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest ${isPending ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"
               }`}>
-              {project.status || "Reviewing"}
+              {project.status === 'pending_allocation' ? 'Pending Allocation' : project.status || "Reviewing"}
             </span>
+            {project.group_id && <span className="text-[10px] font-black tracking-widest text-slate-400 uppercase">Group {project.group_id}</span>}
           </div>
           {isPending ? (
             <div className="p-2 bg-amber-50 rounded-xl"><Clock className="w-5 h-5 text-amber-500" /></div>
