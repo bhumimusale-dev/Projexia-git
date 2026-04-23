@@ -20,8 +20,110 @@ import {
   Download,
   Save,
   PenTool,
-  Camera
+  Camera,
+  Sparkles,
+  Info,
+  BookOpen,
+  X
 } from "lucide-react";
+
+// ============ VPPCOE DYNAMIC RUBRIC CONFIG BY ACADEMIC YEAR ============
+// year values from StudentRegister: "2" = SE, "3" = TE, "4" = BE
+const RUBRIC_CONFIG = {
+  SE: {
+    label: "Second Year (SE) — Mini Project",
+    review_1: {
+      label: "Review 1: Identification",
+      individual: [
+        { key: "prob_id", label: "Problem Identification", max: 4 },
+        { key: "diagrams", label: "Flowcharts/Diagrams", max: 4 },
+        { key: "attendance", label: "Individual Attendance", max: 2 },
+      ],
+    },
+    review_2: {
+      label: "Review 2: Implementation",
+      individual: [
+        { key: "ui_ux", label: "UI/UX Evaluation", max: 4 },
+        { key: "core_logic", label: "Core Module Logic", max: 4 },
+        { key: "attendance", label: "Individual Attendance", max: 2 },
+      ],
+    },
+    final_review: {
+      label: "Continuous Assessment (CA)",
+      individual: [
+        { key: "attendance", label: "Attendance Record", max: 2.5 },
+        { key: "diary", label: "Project Diary Maintenance", max: 2.5 },
+      ],
+    },
+    antigravity_goal: "'Lift' the student's score based on their ability to explain the logic of their specific code snippet during Q&A.",
+  },
+  TE: {
+    label: "Third Year (TE) — R&D Phase",
+    review_1: {
+      label: "Review 1: Research",
+      individual: [
+        { key: "lit_survey", label: "Literature Survey (3+ papers)", max: 7 },
+        { key: "sdg", label: "SDG Mapping Justification", max: 5 },
+        { key: "attendance", label: "Individual Attendance", max: 3 },
+      ],
+    },
+    review_2: {
+      label: "Review 2: Integration",
+      individual: [
+        { key: "integration", label: "Backend-Frontend Case", max: 7 },
+        { key: "api", label: "API Functionality", max: 5 },
+        { key: "attendance", label: "Individual Attendance", max: 3 },
+      ],
+    },
+    final_review: {
+      label: "Professionalism & Presence",
+      individual: [
+        { key: "presentation", label: "Presentation Skills", max: 4 },
+        { key: "qa", label: "Individual Q&A Depth", max: 4 },
+        { key: "teamwork", label: "Teamwork/Collaboration", max: 2 },
+        { key: "attendance", label: "Project Day Presence", max: 5 },
+        { key: "diary", label: "Diary Completion", max: 5 },
+      ],
+    },
+    antigravity_goal: "Prioritize marks for students who identify specific research gaps in existing systems.",
+  },
+  BE: {
+    label: "Final Year (BE) — Capstone Project",
+    review_1: {
+      label: "Review 1: Technical Execution",
+      individual: [
+        { key: "execution", label: "100% Module Completion", max: 15 },
+        { key: "attendance", label: "Individual Attendance", max: 5 },
+      ],
+    },
+    review_2: {
+      label: "Review 2: Research & Recognition",
+      individual: [
+        { key: "publication", label: "Research Paper Status", max: 8 },
+        { key: "recognition", label: "SIH/National Recognition", max: 3 },
+        { key: "attendance", label: "Individual Attendance", max: 4 },
+      ],
+    },
+    final_review: {
+      label: "Review 3: Admin & Presentation",
+      individual: [
+        { key: "ppt", label: "PPT/Report Quality", max: 4 },
+        { key: "qa", label: "Rigorous Technical Q&A", max: 4 },
+        { key: "attendance", label: "Meeting Attendance", max: 2 },
+        { key: "diary", label: "Authenticated Project Diary", max: 5 },
+      ],
+    },
+    antigravity_goal: "Heavily weight individual marks toward successful research paper acceptance and high-fidelity implementation.",
+  },
+};
+
+// Resolve the rubric level string from a project record
+function getProjectLevel(proj) {
+  const y = String(proj?.academic_year || proj?.year || "4");
+  if (y === "2") return "SE";
+  if (y === "3") return "TE";
+  return "BE"; // default
+}
 
 export default function TeacherDashboard() {
   const [projects, setProjects] = useState([]);
@@ -32,7 +134,15 @@ export default function TeacherDashboard() {
   const [view, setView] = useState("submissions"); // 'submissions' or 'analytics'
   const [evaluatingProject, setEvaluatingProject] = useState(null);
   const [reviewPhoto, setReviewPhoto] = useState(null);
-  const [marks, setMarks] = useState({ review_1: 0, review_2: 0, final_review: 0 });
+  const [marks, setMarks] = useState({ 
+    review_1: { group: {}, individual: {} }, 
+    review_2: { group: {}, individual: {} }, 
+    final_review: { group: {}, individual: {} } 
+  });
+  const [evalMode, setEvalMode] = useState("individual"); // Always 'individual' now
+  const [selectedStudent, setSelectedStudent] = useState(null);
+  const [reviewType, setReviewType] = useState("review_1"); // 'review_1', 'review_2', 'final_review'
+  const [isAISuggesting, setIsAISuggesting] = useState(false);
 
   const nav = useNavigate();
   const token = localStorage.getItem("token");
@@ -70,6 +180,39 @@ export default function TeacherDashboard() {
     fetchData();
   }, [token, nav, fetchData, user.role]);
 
+  const runAIEvaluation = async () => {
+     if (!evaluatingProject || !selectedStudent) return;
+     setIsAISuggesting(true);
+     try {
+        const level = getProjectLevel(evaluatingProject);
+        const res = await axios.post("http://127.0.0.1:5000/teacher/ai-smart-eval", {
+           level,
+           title: evaluatingProject.title,
+           description: evaluatingProject.description,
+           student_name: selectedStudent
+        }, { headers: { Authorization: `Bearer ${token}` } });
+
+        const suggestions = res.data.suggestions || {};
+        
+        // Map suggestions to phases with strict clamping to max marks
+        ["review_1", "review_2", "final_review"].forEach(phase => {
+           const criteria = RUBRIC_CONFIG[level]?.[phase]?.individual || [];
+           criteria.forEach(field => {
+              if (suggestions[field.key] !== undefined) {
+                 const suggested = Number(suggestions[field.key]);
+                 const finalValue = Math.min(suggested, field.max);
+                 updateMarks(phase, 'individual', selectedStudent, field.key, finalValue);
+              }
+           });
+        });
+
+     } catch (err) {
+        alert("AI Evaluation logic failed.");
+     } finally {
+        setIsAISuggesting(false);
+     }
+  };
+
   const updateStatus = async (title, status) => {
     try {
       await axios.post(
@@ -90,16 +233,13 @@ export default function TeacherDashboard() {
 
   const downloadReport = () => {
     const allProj = projects.filter(p => p.status === 'approved');
-    const header = "SR No,Group Number,Student ID,Student Name,Name of Project,Review 1 (25),Review 2 (25),Final (50),Total Score (100)\n";
+    const header = "SR No,Group Number,Student ID,Student Name,Name of Project,Review 1 Total,Review 2 Total,Average (Out of 10),Final Review Total,Attendance(Review 3),Diary(Review 3),Presentation(Review 3),Q&A(Review 3),Implementation(Review 3),Research(Review 3),Grand Total\n";
     let csvRows = [];
     let srNo = 1;
 
     allProj.forEach(p => {
        const members = p.group_members && p.group_members.length > 0 ? p.group_members : [p.student_name || ""];
-       const rev1 = Number(p.evaluations?.review_1) || 0;
-       const rev2 = Number(p.evaluations?.review_2) || 0;
-       const fin = Number(p.evaluations?.final_review) || 0;
-       const total = rev1 + rev2 + fin;
+       const evals = p.evaluations || {};
 
        members.forEach((memberStr, idx) => {
           let name = memberStr;
@@ -118,14 +258,46 @@ export default function TeacherDashboard() {
              }
           }
 
+          // Fetch individual marks from the new schema if available
+          const studentKey = memberStr;
+          const level = getProjectLevel(p);
+          
+          // Helper to get total for a phase based on current config keys
+          const getPhaseInfo = (phase) => {
+             const phaseMarks = evals[phase]?.individual?.[studentKey] || {};
+             const criteria = RUBRIC_CONFIG[level]?.[phase]?.individual || [];
+             const total = criteria.reduce((acc, f) => acc + (phaseMarks[f.key] || 0), 0);
+             const max = criteria.reduce((acc, f) => acc + (f.max || 0), 0);
+             return { total, max, marks: phaseMarks };
+          };
+
+          const r1 = getPhaseInfo("review_1");
+          const r2 = getPhaseInfo("review_2");
+          const r3 = getPhaseInfo("final_review");
+
+          const totalR1 = r1.total;
+          const totalR2 = r2.total;
+          const totalFin = r3.total;
+
+          // Average converted to 10 marks (mean of scaled scores)
+          const scaledR1 = r1.max > 0 ? (r1.total / r1.max) * 10 : 0;
+          const scaledR2 = r2.max > 0 ? (r2.total / r2.max) * 10 : 0;
+          const avg10 = ((scaledR1 + scaledR2) / 2).toFixed(2);
+
+          const grandTotal = totalR1 + totalR2 + totalFin;
+
+          const finInd = r3.marks;
+          const r3_attendance = finInd.attendance || 0;
+          const r3_diary = finInd.diary || 0;
+          const r3_presentation = finInd.presentation || finInd.ppt || 0;
+          const r3_qa = finInd.qa || 0;
+          const r3_impl = finInd.implementation || finInd.execution || 0;
+          const r3_research = finInd.research || finInd.publication || 0;
+
           const groupNum = idx === 0 ? (p.group_id || "N/A") : "";
           const projTitle = idx === 0 ? `"${p.title || ""}"` : '""';
-          const r1 = rev1;
-          const r2 = rev2;
-          const f = fin;
-          const t = total;
 
-          csvRows.push(`${srNo},${groupNum},${id},${name},${projTitle},${r1},${r2},${f},${t}`);
+          csvRows.push(`${srNo},${groupNum},${id},${name},${projTitle},${totalR1},${totalR2},${avg10},${totalFin},${r3_attendance},${r3_diary},${r3_presentation},${r3_qa},${r3_impl},${r3_research},${grandTotal}`);
           srNo++;
        });
     });
@@ -135,42 +307,57 @@ export default function TeacherDashboard() {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `Faculty_Evaluation_Report.csv`;
+    a.download = `VPPCOE_Evaluation_Report.csv`;
     a.click();
-  };
-
-  const saveEvaluations = async () => {
-    try {
-      if (reviewPhoto) {
-        const formData = new FormData();
-        formData.append("title", evaluatingProject.title);
-        formData.append("evaluations", JSON.stringify(marks));
-        formData.append("reviewPhoto", reviewPhoto);
-        await axios.post("http://127.0.0.1:5000/teacher/save-evaluations", formData, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-      } else {
-        await axios.post("http://127.0.0.1:5000/teacher/save-evaluations", 
-          { title: evaluatingProject.title, evaluations: marks },
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-      }
-      setEvaluatingProject(null);
-      fetchData();
-    } catch (err) {
-      alert("Failed to save evaluations.");
-    }
   };
 
   const openEvaluationModal = (proj) => {
     if(!proj) return;
+    const ev = proj.evaluations || {};
+    const members = proj.group_members || [proj.student_name];
+    
+    // Ensure all members have an individual object in each review phase
+    const initReview = (phase) => {
+      const raw = ev[phase] || {};
+      const data = {
+        group: raw.group || {},
+        individual: raw.individual || {},
+      };
+      members.forEach(m => {
+        if (!data.individual[m]) data.individual[m] = {};
+      });
+      return data;
+    };
+
     setMarks({
-       review_1: proj.evaluations?.review_1 || 0,
-       review_2: proj.evaluations?.review_2 || 0,
-       final_review: proj.evaluations?.final_review || 0,
+       review_1: initReview("review_1"),
+       review_2: initReview("review_2"),
+       final_review: initReview("final_review"),
     });
     setReviewPhoto(null);
     setEvaluatingProject(proj);
+    setReviewType("review_1");
+    setEvalMode("individual");
+    setSelectedStudent(members[0]);
+  };
+
+  const updateMarks = (type, mode, studentKey, field, val) => {
+     setMarks(prev => {
+        const next = { ...prev };
+        const level = getProjectLevel(evaluatingProject);
+        const config = RUBRIC_CONFIG[level]?.[type];
+
+        if (mode === "individual") {
+           if (!next[type].individual[studentKey]) next[type].individual[studentKey] = {};
+           next[type].individual[studentKey][field] = Number(val);
+           
+           // Calculate student total using ONLY valid keys from the current year/phase config
+           const validKeys = config?.individual?.map(f => f.key) || [];
+           const sum = validKeys.reduce((acc, k) => acc + (next[type].individual[studentKey][k] || 0), 0);
+           next[type].individual[studentKey].total = sum;
+        }
+        return next;
+     });
   };
 
   const analyze = async (title) => {
@@ -343,53 +530,217 @@ export default function TeacherDashboard() {
 
       {/* CONFIDENTIAL EVALUATION MODAL */}
       {evaluatingProject && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-md p-4 animate-in fade-in duration-300">
-           <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-md overflow-hidden flex flex-col pt-8 animate-in zoom-in-95 duration-300">
-              <div className="px-8 mb-6">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-1.5"><PenTool className="w-3 h-3 text-emerald-500"/> Private Assessment</p>
-                <h2 className="text-2xl font-black text-slate-900 tracking-tight leading-tight">{evaluatingProject.title}</h2>
-                <p className="text-xs font-bold text-slate-500 mt-2 truncate max-w-sm border-t border-slate-100 pt-2 border-dashed">Team: {(evaluatingProject.group_members||[]).join(', ')}</p>
-              </div>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-4 animate-in fade-in duration-300">
+       <div className="bg-white rounded-[40px] shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col pt-8 animate-in zoom-in-95 duration-300 border border-white/20">
+          
+          <div className="px-10 mb-6 flex justify-between items-start">
+            <div>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-1.5"><PenTool className="w-3 h-3 text-emerald-500"/> Advanced Rubric Evaluation</p>
+              <h2 className="text-3xl font-black text-slate-900 tracking-tighter leading-tight">{evaluatingProject.title}</h2>
+              <p className="text-xs font-bold text-indigo-500 mt-2">Team Size: {(evaluatingProject.group_members||[]).length} Members</p>
+            </div>
+            <div className="flex bg-slate-100 p-1.5 rounded-2xl border border-slate-200 shadow-inner">
+               {["review_1", "review_2", "final_review"].map(type => {
+                  const level = getProjectLevel(evaluatingProject);
+                  const label = RUBRIC_CONFIG[level]?.[type]?.label || type.replace('_', ' ');
+                  return (
+                    <button 
+                      key={type} 
+                      onClick={() => setReviewType(type)}
+                      className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${reviewType === type ? 'bg-white text-indigo-600 shadow-sm border border-slate-200' : 'text-slate-400 hover:text-slate-600'}`}
+                    >
+                      {label}
+                    </button>
+                  );
+               })}
+            </div>
+          </div>
 
-              <div className="px-8 space-y-5 bg-slate-50/50 pb-8 pt-6 border-t border-slate-100 flex-1">
-                 <div>
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex justify-between mb-2">Review 1 Score <span className="text-indigo-500">Max 25</span></label>
-                    <input type="number" max="25" min="0" value={marks.review_1} onChange={(e)=>setMarks({...marks, review_1: e.target.value})} className="w-full bg-white border border-slate-200 p-4 rounded-xl outline-none focus:border-indigo-500 font-bold text-lg text-slate-800" />
-                 </div>
-                 <div>
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex justify-between mb-2">Review 2 Score <span className="text-indigo-500">Max 25</span></label>
-                    <input type="number" max="25" min="0" value={marks.review_2} onChange={(e)=>setMarks({...marks, review_2: e.target.value})} className="w-full bg-white border border-slate-200 p-4 rounded-xl outline-none focus:border-indigo-500 font-bold text-lg text-slate-800" />
-                 </div>
-                 <div>
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex justify-between mb-2">Final Review Score <span className="text-indigo-500">Max 50</span></label>
-                    <input type="number" max="50" min="0" value={marks.final_review} onChange={(e)=>setMarks({...marks, final_review: e.target.value})} className="w-full bg-white border border-slate-200 p-4 rounded-xl outline-none focus:border-indigo-500 font-bold text-lg text-slate-800" />
-                 </div>
-                 
-                 <div className="flex items-center justify-between pt-4 border-t border-slate-200/60 mt-2">
-                    <span className="text-sm font-black text-slate-500">Total Calculation:</span>
-                    <span className="text-2xl font-black text-indigo-600">{Number(marks.review_1) + Number(marks.review_2) + Number(marks.final_review)}/100</span>
-                 </div>
+          <div className="flex flex-1 overflow-hidden border-t border-slate-100">
+             
+             {/* MODAL SIDEBAR: Modes & Students */}
+             <div className="w-64 bg-slate-50 border-r border-slate-100 p-6 flex flex-col gap-6 overflow-y-auto">
+                <div className="space-y-2">
+                   <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-2">Evaluation Layer</p>
+                   <div className="w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs bg-indigo-600 text-white shadow-lg">
+                      <User className="w-4 h-4" /> Student Marks
+                   </div>
+                </div>
 
-                 <div className="pt-2 border-t border-slate-200/60 mt-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center mb-2 gap-1.5 cursor-pointer hover:text-indigo-500 transition-colors">
-                      <Camera className="w-3.5 h-3.5" /> Attach Review Photo Evidence
-                      <input type="file" className="hidden" accept="image/*" onChange={e => setReviewPhoto(e.target.files[0])} />
-                    </label>
-                    {reviewPhoto && <div className="text-xs font-bold text-indigo-600 bg-indigo-50 px-3 py-2 rounded-xl border border-indigo-100/50 truncate">Attached: {reviewPhoto.name}</div>}
-                    {!reviewPhoto && evaluatingProject.evaluations?.photo && (
-                       <a href={evaluatingProject.evaluations.photo} target="_blank" rel="noreferrer" className="text-xs font-bold text-slate-500 underline">View previously uploaded photo</a>
-                    )}
-                 </div>
-              </div>
+                <div className="space-y-2 pt-4 border-t border-slate-200">
+                   <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-2">Select Student</p>
+                   {(evaluatingProject.group_members || []).map(m => (
+                      <button 
+                        key={m} 
+                        onClick={() => setSelectedStudent(m)} 
+                        className={`w-full text-left p-3 rounded-xl text-xs font-bold truncate transition-all ${selectedStudent === m ? 'bg-indigo-50 text-indigo-600 border border-indigo-200 pr-2' : 'hover:bg-slate-100 text-slate-500'}`}
+                      >
+                         {m}
+                      </button>
+                   ))}
+                </div>
 
-              <div className="flex border-t border-emerald-100">
-                 <button onClick={() => setEvaluatingProject(null)} className="flex-1 py-4 text-xs font-black uppercase tracking-widest text-slate-500 hover:bg-slate-50 transition-colors">Abort</button>
-                 <button onClick={saveEvaluations} className="flex-1 py-4 text-xs font-black uppercase tracking-widest text-white bg-emerald-500 hover:bg-emerald-600 transition-colors flex items-center justify-center gap-2 shadow-inner"><Save className="w-4 h-4" /> Save Record</button>
-              </div>
-           </div>
-        </div>
-      )}
+                <div className="mt-auto space-y-3">
+                   <div className="bg-indigo-50 p-4 rounded-2xl border border-indigo-100">
+                      <p className="text-[9px] font-black text-indigo-400 uppercase tracking-widest mb-2">Review Summary</p>
+                      <div className="flex justify-between items-end">
+                         <span className="text-xs font-bold text-slate-600">Total:</span>
+                         <span className="text-2xl font-black text-indigo-600">
+                            {marks[reviewType].individual[selectedStudent]?.total || 0}
+                         </span>
+                      </div>
+                   </div>
 
+                   <div className="bg-emerald-50 p-4 rounded-2xl border border-emerald-100">
+                      <p className="text-[9px] font-black text-emerald-400 uppercase tracking-widest mb-2">Phase Avg (10M)</p>
+                      <div className="flex justify-between items-end">
+                         <span className="text-xs font-bold text-slate-600">Avg Result:</span>
+                         <span className="text-xl font-black text-emerald-600">
+                            {(() => {
+                               const level = getProjectLevel(evaluatingProject);
+                               const r1_ind = marks.review_1.individual[selectedStudent] || {};
+                               const r2_ind = marks.review_2.individual[selectedStudent] || {};
+                               
+                               const getScaled = (phase, data) => {
+                                  const config = RUBRIC_CONFIG[level]?.[phase]?.individual || [];
+                                  const total = config.reduce((acc, f) => acc + (data[f.key] || 0), 0);
+                                  const max = config.reduce((acc, f) => acc + (f.max || 0), 0);
+                                  return max > 0 ? (total / max) * 10 : 0;
+                               };
+
+                               const s1 = getScaled("review_1", r1_ind);
+                               const s2 = getScaled("review_2", r2_ind);
+                               return ((s1 + s2) / 2).toFixed(2);
+                            })()}
+                         </span>
+                      </div>
+                   </div>
+                </div>
+             </div>
+
+             {/* MODAL MAIN CONTENT: Input Fields */}
+             <div className="flex-1 p-8 overflow-y-auto bg-white">
+                <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
+                   <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                         <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600">
+                            <User className="w-5 h-5" />
+                         </div>
+                         <div>
+                            <h4 className="font-black text-slate-800 tracking-tight leading-none mb-1">Individual Metrics: <span className="text-indigo-600">{selectedStudent}</span></h4>
+                            <p className="text-xs text-slate-500 font-medium">Applied to Individual Termwork Component</p>
+                         </div>
+                      </div>
+                      
+                      {/* ANTIGRAVITY GOAL BADGE */}
+                      <div className="bg-gradient-to-r from-indigo-50 to-purple-50 px-4 py-2 rounded-2xl border border-indigo-100/50 flex items-center gap-2 max-w-[300px]">
+                         <Sparkles className="w-3 h-3 text-indigo-500 animate-pulse" />
+                         <p className="text-[9px] font-bold text-slate-600 leading-tight">
+                            <span className="text-indigo-600 font-black mr-1">GOAL:</span>
+                            {RUBRIC_CONFIG[getProjectLevel(evaluatingProject)]?.antigravity_goal}
+                         </p>
+                      </div>
+                   </div>
+
+                   <div className="grid grid-cols-2 gap-6">
+                      {(() => {
+                        const level = getProjectLevel(evaluatingProject);
+                        const config = RUBRIC_CONFIG[level]?.[reviewType];
+                        
+                        return config?.individual?.map(field => (
+                          <RubricInput 
+                            key={field.key}
+                            label={field.label} 
+                            max={field.max} 
+                            value={marks[reviewType].individual[selectedStudent]?.[field.key]} 
+                            onChange={v => updateMarks(reviewType, 'individual', selectedStudent, field.key, v)} 
+                          />
+                        )) || <p className="col-span-2 text-center text-slate-400 py-10 font-bold">No criteria defined for this phase.</p>;
+                      })()}
+                   </div>
+                </div>
+
+                <div className="mt-10 pt-8 border-t border-slate-100">
+                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center mb-4 gap-1.5 cursor-pointer hover:text-indigo-500 transition-all">
+                     <Camera className="w-4 h-4" /> Evidence & Photo Authentication
+                     <input type="file" className="hidden" accept="image/*" onChange={e => setReviewPhoto(e.target.files[0])} />
+                   </p>
+                   {reviewPhoto && <div className="text-xs font-bold text-indigo-600 bg-indigo-50/50 px-4 py-3 rounded-2xl border border-indigo-100 flex items-center gap-3">
+                      <div className="w-8 h-8 bg-indigo-600 flex items-center justify-center rounded-lg text-white font-black">JPG</div>
+                      <span className="flex-1 truncate">Attached: {reviewPhoto.name}</span>
+                      <button onClick={()=>setReviewPhoto(null)} className="text-red-400 hover:text-red-600 font-bold px-2">Remove</button>
+                   </div>}
+                </div>
+             </div>
+          </div>
+
+          <div className="flex border-t border-slate-100 bg-slate-50 p-6 gap-4 justify-between items-center">
+             <button onClick={() => setEvaluatingProject(null)} className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-slate-700 transition-colors">Terminate Session</button>
+             
+             <div className="flex gap-4">
+                <button 
+                   onClick={runAIEvaluation}
+                   disabled={isAISuggesting}
+                   className={`px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 border transition-all ${isAISuggesting ? 'bg-indigo-50 text-indigo-400 border-indigo-100 cursor-wait' : 'bg-white text-indigo-600 border-indigo-200 hover:bg-indigo-50 shadow-sm active:scale-95 disabled:opacity-50'}`}
+                >
+                   <Sparkles className={`w-4 h-4 ${isAISuggesting ? 'animate-spin' : ''}`} />
+                   {isAISuggesting ? "Computing..." : "AI Logic Assistant"}
+                </button>
+
+                <button 
+                  onClick={async () => {
+                   try {
+                      const payload = { title: evaluatingProject.title, evaluations: marks };
+                      if (reviewPhoto) {
+                        const fd = new FormData();
+                        fd.append("title", evaluatingProject.title);
+                        fd.append("evaluations", JSON.stringify(marks));
+                        fd.append("reviewPhoto", reviewPhoto);
+                        await axios.post("http://127.0.0.1:5000/teacher/save-evaluations", fd, { headers: { Authorization: `Bearer ${token}` } });
+                      } else {
+                        await axios.post("http://127.0.0.1:5000/teacher/save-evaluations", payload, { headers: { Authorization: `Bearer ${token}` } });
+                      }
+                      setEvaluatingProject(null);
+                      fetchData();
+                   } catch (err) {
+                      alert("Failed to commit evaluations to mainframe.");
+                   }
+                }} 
+                className="px-10 bg-indigo-600 hover:bg-indigo-700 text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-xl shadow-indigo-500/20 transition-all active:scale-[0.98]"
+                >
+                   <Save className="w-4 h-4" /> Commit Record to Ledger
+                </button>
+             </div>
+          </div>
+       </div>
+    </div>
+  )}
+    </div>
+  );
+}
+
+function RubricInput({ label, max, value, onChange }) {
+  const displayValue = value === 0 ? "" : value;
+
+  return (
+    <div className="group">
+      <div className="flex justify-between items-center mb-2">
+        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest group-hover:text-indigo-500 transition-colors">{label}</label>
+        <span className="text-[10px] font-black text-slate-300">Max {max}</span>
+      </div>
+      <input 
+        type="number" 
+        max={max} 
+        min="0" 
+        placeholder="0"
+        value={displayValue ?? ""} 
+        onChange={(e) => {
+           const v = e.target.value === "" ? 0 : Number(e.target.value);
+           if (v <= max) onChange(v);
+        }}
+        onFocus={(e) => e.target.select()}
+        className="w-full bg-slate-50 border border-slate-200 p-3.5 rounded-xl outline-none focus:border-indigo-500 focus:bg-white font-bold text-slate-700 transition-all placeholder:text-slate-300"
+      />
     </div>
   );
 }

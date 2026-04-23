@@ -566,6 +566,117 @@ def save_evaluations():
     return jsonify({"msg": "Evaluations saved successfully"}), 200
 
 
+# ================= AI RUBRIC GENERATION =================
+@app.route("/teacher/generate-rubric", methods=["POST"])
+@jwt_required()
+def generate_rubric():
+    if not is_teacher():
+        return jsonify({"msg": "Unauthorized: Teacher role required"}), 403
+
+    if not os.getenv("GEMINI_API_KEY"):
+        return jsonify({"msg": "AI Rubrics are currently disabled. Missing API Key."}), 503
+
+    data = request.get_json()
+    level = data.get("level", "BE") # SE/TE/BE
+    
+    # User's conceptual prompt logic
+    prompt = f"""
+    Generate a 2-tier evaluation rubric for a {level} project.
+    Tier 1 (Group - 40%): Evaluate Problem Clarity, SDG Mapping, and Literature Survey.
+    Tier 2 (Individual - 60%): Evaluate each student separately on: 
+    Technical Implementation: Quality and complexity of their assigned module (mapped via GitHub/Task Tracker).
+    Individual Q&A: Accuracy and confidence in answering technical questions.
+    Professionalism: Individual attendance and Project Diary maintenance.
+    
+    Format the output strictly as a JSON object with:
+    "group_criteria": [list of strings],
+    "individual_criteria": [list of strings],
+    "max_marks": {{
+        "group_total": 10,
+        "individual_total": 15
+    }}
+    """
+    
+    try:
+        model = genai.GenerativeModel('gemini-2.5-flash')
+        response = model.generate_content(prompt)
+        # Clean the response to ensure only JSON is returned
+        text = response.text.strip()
+        if "```json" in text:
+            text = text.split("```json")[1].split("```")[0].strip()
+        elif "```" in text:
+             text = text.split("```")[1].split("```")[0].strip()
+        
+        return jsonify({"rubric": json.loads(text)}), 200
+    except Exception as e:
+        print(f"Gemini Rubric Error: {e}")
+        return jsonify({"msg": str(e)}), 500
+
+
+@app.route("/teacher/ai-smart-eval", methods=["POST"])
+@jwt_required()
+def ai_smart_eval():
+    if not is_teacher():
+        return jsonify({"msg": "Unauthorized"}), 403
+
+    data = request.get_json()
+    level = data.get("level", "BE")
+    title = data.get("title")
+    desc = data.get("description")
+    student = data.get("student_name")
+    
+    prompts = {
+        "SE": f"Act as a Mini Project Evaluator for SE. Generate an individual Termwork score out of 25 for {student} on '{title}'. Goal: 'Lift' the score based on code logic explanation.",
+        "TE": f"Act as a Technical Lead for TE projects. Calculate individual Termwork out of 50 for {student} on '{title}'. Goal: Prioritize research gap identification.",
+        "BE": f"Act as a Senior Research Auditor for Final Year BE. Calculate individual Termwork out of 50 for {student} on '{title}'. Goal: Weight toward publication status and module completion."
+    }
+    
+    system_prompt = prompts.get(level, prompts["BE"])
+    
+    # Define criteria mapping and max marks for the AI to fill
+    meta = {
+        "SE": {"prob_id": 4, "diagrams": 4, "ui_ux": 4, "core_logic": 4, "attendance": 2.5, "diary": 2.5},
+        "TE": {"lit_survey": 7, "sdg": 5, "integration": 7, "api": 5, "presentation": 4, "qa": 4, "teamwork": 2, "attendance": 5, "diary": 5},
+        "BE": {"execution": 15, "publication": 8, "recognition": 3, "ppt": 4, "qa": 4, "attendance": 5, "diary": 5}
+    }
+    
+    current_meta = meta.get(level, meta["BE"])
+    
+    full_prompt = f"""
+    {system_prompt}
+    
+    Context:
+    Project Title: {title}
+    Description: {desc}
+    
+    Suggest realistic marks for these specific criteria keys based on the context.
+    Return ONLY a JSON object mapping keys to numeric scores. 
+    Crucial: DO NOT exceed these Max Marks:
+    {json.dumps(current_meta, indent=2)}
+    
+    Output Format:
+    {{
+        "key": score,
+        ...
+    }}
+    """
+
+    try:
+        model = genai.GenerativeModel('gemini-2.5-flash')
+        response = model.generate_content(full_prompt)
+        text = response.text.strip()
+        if "```json" in text:
+            text = text.split("```json")[1].split("```")[0].strip()
+        elif "```" in text:
+             text = text.split("```")[1].split("```")[0].strip()
+             
+        suggestions = json.loads(text)
+        return jsonify({"suggestions": suggestions}), 200
+    except Exception as e:
+        print(f"Smart Eval Error: {e}")
+        return jsonify({"msg": str(e)}), 500
+
+
 @app.route("/teacher/analytics", methods=["GET"])
 @jwt_required()
 def analytics():
